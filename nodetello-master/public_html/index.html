@@ -1,0 +1,91 @@
+<html>
+	<head>
+		<title>Lilycopter.</title>
+		<link rel="stylesheet" href="bootstrap.min.css">
+		<script type="text/javascript" src="Decoder.js"></script>
+		<script type="text/javascript" src="YUVCanvas.js"></script>
+		<script type="text/javascript" src="Player.js"></script>
+		<script type="text/javascript" src="stream.js"></script>
+		<script type="text/javascript" src="mp4.js"></script>
+	</head>
+<body>
+	<div id="videoFeed"></div>
+<script>
+
+var FPS=30;
+var ws_video = false;
+var ws_telemetry = false; var telemetry_obj = document.getElementById("telemetryFeed");
+var c,ctx;
+var imgData = false;
+var h264_player = false;
+var h264_decoder = false;
+var kMap = { };
+var stickData = {
+	roll     : 0,
+	pitch    : 0,
+	throttle : 0,
+	yaw      : 0
+};
+
+
+function initVideoFeedReceive() {
+	ws_video.send("f");
+}
+
+
+
+var toUint8Array = function(parStr){
+	var raw = parStr;
+	var rawLength = raw.length;
+	var array = new Uint8Array(new ArrayBuffer(rawLength));
+
+	var i;
+	for(i = 0; i < rawLength; i++) {
+		array[i] = raw.charCodeAt(i);
+	}
+	return array;    
+};
+
+function processFrame(imgString) {
+	if (imgString.data!='false') {
+		h264_player.decode(toUint8Array(imgString.data));
+	} else {
+		console.log(imgString);
+	}
+}
+
+function connect() {
+	try {
+		ws_video = new WebSocket("ws://127.0.0.1:8081/");
+		ws_video.onmessage = function (data) {
+			processFrame(data);
+		};
+		ws_video.onopen = function () {
+			initVideoFeedReceive();
+		};
+		ws_video.onerror = function () {
+			ws_video.close();
+		}
+	} catch (e) {
+		console.log("Error","Video", "reconnect");
+	}
+}
+
+
+function initCanvas() {
+	h264_player = new Player({
+		useWorker : true,
+		workerFile : "Decoder.js",
+		webgl: 'auto',
+		size: { width: 960, height: 720}
+	});
+	document.getElementById("videoFeed").appendChild(h264_player.canvas);
+}
+
+initCanvas();
+connect();
+
+
+</script>
+</body>
+</html>
